@@ -61,7 +61,7 @@ def listSheets(message):
   list = ""
   if len(resultCount) > 0:
     for x in resultCount:
-      row = sheet.searchSheet("Name", )
+      row = sheet.searchSheet("Name", x[2])
       list += str(row[0][0]) +", " #array number
   else:
     list += "You currently have no Characters. Attach one now using `$import [url]` now!"
@@ -74,35 +74,31 @@ def getCurrent(message):
 
   if len(content) >1:
     #Has Listed Character
+    
+    sql = "SELECT * FROM sheets WHERE charName ='%s' AND name = %s;" % (content[1], author,) #Gets the Active result
 
-    sql = "SELECT * FROM users WHERE userID ='%s' AND sheetID = '%s;" % (author, content[1],)
     mycursor.execute(sql)
 
-    x = mycursor.fetchone() #should have one row of user and Sheet
-    setCurrent(x[0],x[1])
+    result = mycursor.fetchall()
+    print(result)
+    setCurrent(author, result[0])
 
 
-def setCurrent(author, link):
-  sql = "SELECT * FROM sheets WHERE link ='%s' AND name = %s;" % (link, author,) #Gets the Active result
-
-  mycursor.execute(sql)
-
-  result = mycursor.fetchone() #Should be ID, USERID, SHEETID, CHARNAME
-
+def setCurrent(author, link =""):
   sql = "SELECT * FROM users WHERE userID = %s;" % (author,)
   mycursor.execute(sql)
 
-  result = mycursor.fetchone() #should give UserID, SheetID
+  result = mycursor.fetchall() #should give UserID, SheetID
 
   if len(result) >0:
     #Has a active char already
-    sql = "UPDATE users SET sheetID = %s WHERE userID = %s;" % ( result[2] ,author)
+    sql = "UPDATE users SET sheetID = %s WHERE userID = %s;" % (link ,author)
     mycursor.execute(sql)
 
   else:
     #has no active char
     sql = "INSERT INTO users (userID, sheetID) VALUES (%s, %s)"
-    val = (author, result[2],)
+    val = (author, link,)
     mycursor.execute(sql, val)
 
   return getCharacter(author, link)
