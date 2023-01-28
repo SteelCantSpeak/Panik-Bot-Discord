@@ -7,28 +7,15 @@ from google.oauth2.credentials import Credentials
 
 import Levenshtein as lev
 from fuzzywuzzy import fuzz
+from lib import Rolling as roll
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
-SPREADSHEET_ID = '115Ji6RbAqe9WzTjMSQDHXj_AkJussvB_lgfE-VrZ50k'
-SAMPLE_RANGE_NAME = 'Powers!A2:E'
+REFSHEETID = '115Ji6RbAqe9WzTjMSQDHXj_AkJussvB_lgfE-VrZ50k'
+REFSHEETRANGE = 'Concatenation!E1:G139'
 
-global Header
-global Body
-global Footer
 
-sheetRef = { 
-  #Arrays of Skills
-  "Abilities": "Powers!B6:C11",
-  "Talents": "Powers!B14:C25",
-  "Movement": "Powers!M8:N12",
-  #Singular References
-  "Name": "Bio!C2",
-  "Tier": "Powers!B3",
-  "Max Speed" : "Bio!P6",
-  "Max Carry" : "Bio!P7"
-}
 
-def AccessData(sheetID, _range):
+def AccessData(sheetID, _range): #Connect to Sheet for Read-Only Data collection
     """Shows basic usage of the Sheets API.
     Prints values from a sample spreadsheet.
     """
@@ -58,51 +45,34 @@ def AccessData(sheetID, _range):
     values = result.get('values', [])
     return values
 
-def getListArray(group = "Powers"):
-    return group + "!A2:E"    
+#USE COMMANDS
 
-def Lookup(message):
-
-    link = ""
-
+def Lookup(message): #find info from the Reference Sheet
     x = message.split()
+    power = x[1]
 
-    if len(x) == 3:
-        response = getWithKnownGroup(x[1], x[2])
-    elif len(x) == 4:
-        response = getWithKnownGroup(x[1], x[2], x[3])
-
-    return response
-
-def getWithKnownGroup(group, power, add = "\""):
-    correctValue = 50
-
-    if similarTest(group, "ability") > correctValue:
-        SAMPLE_RANGE_NAME = getListArray("Abilities")
-        Header = "Ability"
-    elif similarTest(group, "skill") > correctValue:
-        SAMPLE_RANGE_NAME = getListArray("Skills")
-        Header = "Skill"
-    elif similarTest(group, "power") > correctValue:
-        SAMPLE_RANGE_NAME = getListArray("Powers")
-        Header = "Power"
-    else:
-        return "Please try again"
-
-    array = AccessData(SPREADSHEET_ID, SAMPLE_RANGE_NAME)
-
+    array = AccessData(REFSHEETID, REFSHEETRANGE)
 
     if power.startswith('"'):
-        power += add
+        power += x[1]
 
     results = compareValues(array, power.lower())
-    Header += ": " + results[0].capitalize()
+    Header = results[0].capitalize()
     body = results[1]
     Footer = results[2]
 
     return [Header, body, Footer]
 
-def compareValues( array = [], wanted = ""):
+def rollFromSheet(array, search): #Find dice value from Character Array and roll Integer
+    score = compareValues(array, search) #gives row for name and dice count
+    try:
+        result = roll.rollDice(getCharacterName(array) +" rolls " + score[0], int(score[1]))
+        return [result[0], result[1], result[2], getCharacterImage(array)]
+    except: #If score isn't image?
+        return [getCharacterName(array) +" rolls... their " + score[1]+"?", "Please try again", "$check" , getCharacterImage(array)]
+
+
+def compareValues(array = [], wanted = ""): #Compare each row[0] value for closest to WANTED
         answer = ""
         correctness = 0
         for row in array:
@@ -111,15 +81,65 @@ def compareValues( array = [], wanted = ""):
                 correctness = similarTest(row[0].lower(), wanted)
         return answer
 
-def similarTest(value = "", wanted = ""):
+def similarTest(value = "", wanted = ""): #Analysis for Comparision of two strings
     return fuzz.ratio(value, wanted)
 
-def searchSheet(data, link):
-    #search a designated Sheet Pos for the Position
-    field = AccessData(getSheetLink(link), sheetRef[str(data)])
-    return field
 
-def getSheetLink(url = ""):
+def getSheetLink(url = ""): #Convert Sheet's addess into Sheet ID
     text = url.replace("https://docs.google.com/spreadsheets/d/","")
     final = text.split("/")
     return final[0]
+
+def getCharacterArray(sheetID): #Get Skeleton Info from character sheet
+    # 0, IMAGE 
+    # 1, Name 2, Tier 3, Edge 4, Resolve
+    # 5, Health 6, Hero Points 7, Max Speed 8, Max Carry 9, Passive Defense 10, Active Defense 11, Mental Defense
+    # 12, Agility 13, Intellect 14, Might 15, Perception 16, Toughness 17, Willpower 
+    # 18, Academics 19, Charm 20, Command 21, Covert 22, Investigation 23, Medicine 24, Professional 25, Science 26, Streetwise 27, Survival 28, Technology 29, Vehicles
+
+    array = AccessData(sheetID, "Hidden Data!O2:P130")
+    return array
+
+def getCharacterImage(array):
+    return array[0][1] #IMAGE
+
+def getCharacterName(array):
+    return array[1][1]
+
+def getCharacterBio(array):
+    value = [x[1] for x in array] #Only the numbers, so value[13] is 10 instead of array[13][1] = 10
+    basics = """**__Hero__**
+    **Edge:** %s            **Resolve:** %s
+    **Health:** %s          **Hero points:** %s
+    **Max Speed:** *%s*
+    **Max Carry/Push:** *%s*
+    **__Defenses__**
+    **Passive:** %sd
+    **Active:** %sd
+    **Mental:** %sd
+    """ % (value[3],value[4],value[5],value[6],value[7],value[8],value[9],value[10],value[11],)
+
+    abilities = """**__Abilities__**
+    **Agility:** %sd     **Intellect:** %sd
+    **Might:** %sd       **Perception:** %sd
+    **Toughness:** %sd   **Willpower:** %sd
+    """ % (value[12],value[13],value[14],value[15],value[16],value[17],)
+
+    talents = """**__Talents__**
+    **Academics:** %sd       **Charm:** %sd
+    **Command:** %sd         **Covert:** %sd
+    **Investigation:** %sd   **Medicine:** %sd
+    **Professional:** %sd    **Science:** %sd
+    **Streetwise:** %sd      **Survival:** %sd
+    **Technology:** %sd      **Vehicles:** %sd
+    """ % (value[18],value[19],value[20],value[21],value[22],value[23],value[24],value[25],value[26],value[27],value[28],value[29],)
+
+    powers = """**__Powers__**""" 
+    if len(array) > 30:
+        for x in range(len(array)):
+            if x <= 29:
+                continue
+            powers += "\n ***%s** %sd*" % (array[x][0], array[x][1],) #Only time in this section ARRAY should be used instead of VALUE
+    
+    body = basics + abilities + talents + powers
+    return [getCharacterName(array), body, "$import to upload a new character, or $list to see your roster", getCharacterImage(array)]

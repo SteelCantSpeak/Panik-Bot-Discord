@@ -38,13 +38,25 @@ async def on_message(message):
     
     if message.content.startswith('$list'):
         await message.channel.send(embed = createEmbed(message.author, connect.listSheets(message)))
-    if message.content.startswith('$use'):
-        await message.channel.send(embed = createEmbed(message.author, connect.getCurrent(message)))
+    if message.content.startswith('$char'):
+        try:
+            await message.channel.send(embed = createEmbed(message.author, connect.setCurrent(message)))
+        except:
+            text = ["Oops!", "You currently have no Characters. Attach one now using `$import [url]` now!", '$char']
+            await message.channel.send(embed = createEmbed(message.author, text))
+    if message.content.startswith('$check'):
+        try:
+            await message.channel.send(embed = createEmbed(message.author, connect.rollSheet(message)))
+        except:
+            text = ["Oops!", "You currently have no Characters. Attach one now using `$import [url]` now!", "$check"]
+            await message.channel.send(embed = createEmbed(message.author, text))
 
 def createEmbed(author, content = []):
     #Content follows format of Heading, Body, Footer
     embed = discord.Embed(title=content[0], url="http://www.Google.com", description=content[1], color=0xFAA61A)
     embed.set_footer(text=content[2])
+    if len(content) == 4:
+        embed.set_thumbnail(url=content[3])
     embed.set_author(name=author, icon_url= author.avatar)
     return embed
 
